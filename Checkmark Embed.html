@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Persistent Embed-Editor Widget</title>
+  <style>
+    body { margin:0; font-family:sans-serif; }
+    .container {
+      border:1px solid #ccc;
+      padding:10px;
+      border-radius:4px;
+      box-sizing:border-box;
+      width:100%;
+    }
+    textarea {
+      width:100%;
+      height:120px;
+      box-sizing:border-box;
+      margin-bottom:8px;
+      font-family:monospace;
+    }
+    .file-wrapper {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-bottom:8px;
+    }
+    .embed-label {
+      display:flex;
+      align-items:center;
+      gap:4px;
+    }
+    .controls {
+      display:flex;
+      gap:8px;
+      align-items:center;
+      margin-bottom:8px;
+    }
+    button { padding:6px 12px; cursor:pointer; }
+    .msg { color:red; margin-top:8px; }
+    .pw-change input { padding:4px; }
+  </style>
+</head>
+<body>
+  <!-- Editor UI container -->
+  <div id="editor-ui" style="display:none;"></div>
+  <!-- User content container -->
+  <div id="content-ui" style="display:none;"></div>
+
+  <script>
+  (function(){
+    // Unique widget instance ID
+    const params        = new URLSearchParams(location.search);
+    const widgetId      = params.get('id') || 'default';
+    const storageKey    = 'embed-editor:' + widgetId;
+    const pwKey         = 'embed-editor-pw:' + widgetId;
+
+    // Normal password stored
+    let normalPassword  = localStorage.getItem(pwKey) || 'CheckmarkAudio';
+
+    // Show user content
+    function showContent(html) {
+      document.getElementById('editor-ui').style.display = 'none';
+      const contentDiv = document.getElementById('content-ui');
+      contentDiv.style.display = 'block';
+      contentDiv.innerHTML = html;
+    }
+
+    // Show editor UI
+    function showEditor() {
+      const editorDiv = document.getElementById('editor-ui');
+      editorDiv.style.display = 'block';
+      editorDiv.innerHTML = `
+        <div class="container">
+          <textarea placeholder="Type your HTML here…"></textarea>
+          <div class="file-wrapper">
+            <input type="file" accept=".html,text/html">
+            <div class="embed-label">
+              <span>Checkmark Embed</span>
+              <img src="https://static.wixstatic.com/media/afbb39_617140a20fbb47b2b858c0d3ef28a4ef~mv2.png" alt="Checkmark Embed" style="height:24px;">
+            </div>
+          </div>
+          <div class="controls">
+            <button id="commit">Commit</button>
+            <button id="reset">Reset</button>
+            <div class="pw-change">
+              <label for="pw-input">New Password:</label>
+              <input type="password" id="pw-input" placeholder="optional">
+              <button id="pw-btn">Set Password</button>
+            </div>
+          </div>
+          <div class="msg"></div>
+        </div>
+      `;
+      document.getElementById('content-ui').style.display = 'none';
+
+      const container = editorDiv.querySelector('.container');
+      const ta        = container.querySelector('textarea');
+      const fi        = container.querySelector('input[type=file]');
+      const commitBtn = container.querySelector('#commit');
+      const resetBtn  = container.querySelector('#reset');
+      const pwInput   = container.querySelector('#pw-input');
+      const pwBtn     = container.querySelector('#pw-btn');
+      const msgEl     = container.querySelector('.msg');
+
+      // Commit content
+      commitBtn.addEventListener('click', () => {
+        msgEl.textContent = '';
+        const doReplace = html => {
+          localStorage.setItem(storageKey, html);
+          showContent(html);
+        };
+        if (fi.files.length) {
+          const reader = new FileReader();
+          reader.onload = () => doReplace(reader.result);
+          reader.onerror= () => msgEl.textContent = 'Error reading file.';
+          reader.readAsText(fi.files[0]);
+        } else {
+          const code = ta.value.trim();
+          if (!code) {
+            msgEl.textContent = 'Please type HTML or select a file.';
+            return;
+          }
+          doReplace(code);
+        }
+      });
+
+      // Reset content (no password required)
+      resetBtn.addEventListener('click', () => {
+        localStorage.removeItem(storageKey);
+        showEditor();
+      });
+
+      // Change normal password
+      pwBtn.addEventListener('click', () => {
+        const newPw = pwInput.value.trim();
+        if (!newPw) {
+          msgEl.textContent = 'Password cannot be empty.';
+          return;
+        }
+        localStorage.setItem(pwKey, newPw);
+        normalPassword = newPw;
+        msgEl.textContent = 'Password updated.';
+        pwInput.value = '';
+      });
+    }
+
+    // Initialize
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      showContent(saved);
+    } else {
+      showEditor();
+    }
+  })();
+  </script>
+</body>
+</html>
